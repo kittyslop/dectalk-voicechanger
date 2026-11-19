@@ -17,6 +17,9 @@ env:
   DECTALK_COMMIT: 986ea12ec8dac85881394d7bd7daf1f1d5098b9a
   MODEL: sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-fp16
   MODEL_SHA256: 37f67a1a6c942dae27d345ee395fbd19e25ee48996faf70fca25779026054cf0
+  # VB-Audio Virtual Cable's package, shipped unmodified (allowed by vb-audio.com/Services/licensing.htm)
+  VBCABLE: VBCABLE_Driver_Pack46.zip
+  VBCABLE_SHA256: bc44e8974191a5a2427d6c979e2dab08dbb09925f3f435dfa2f0ba3e45b6eb90
 
 jobs:
   build:
@@ -66,11 +69,13 @@ jobs:
         run: |
           set -e
           app=dist/Moonbase
-          mkdir -p "$app/dectalk" "$app/models"
+          mkdir -p "$app/dectalk" "$app/models" "$app/vbcable"
           cp "dectalk-src/src/dapi/build/dectalk/x64/Release - ENGLISH_US/DECtalk.dll" "$app/dectalk/"
           cp "dectalk-src/src/dapi/build/dic/x64/Release - ENGLISH_US/dtalk_us.dic" "$app/dectalk/"
           mv "models/$MODEL" "$app/models/"
           cp packaging/windows/README.txt "$app/README.txt"
+          curl -fsSL --retry 3 -A "Mozilla/5.0" -o "$app/vbcable/$VBCABLE" "https://download.vb-audio.com/Download_CABLE/$VBCABLE"
+          echo "$VBCABLE_SHA256  $app/vbcable/$VBCABLE" | sha256sum -c
           # the CUDA plugin goes in the GPU pack, at the same place
           plugin=_internal/sherpa_onnx/lib/onnxruntime_providers_cuda.dll
           find "$app" -iname "onnxruntime*.dll"

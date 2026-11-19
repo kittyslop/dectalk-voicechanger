@@ -77,6 +77,7 @@ import sherpa_onnx  # noqa: E402  (after the CUDA libraries)
 
 if WINDOWS:
     SETTINGS_FILE = os.path.join(os.environ.get("APPDATA") or APP_DIR, "Moonbase", "settings.json")
+    CABLE_PACK = os.path.join(APP_DIR, "vbcable", audio.CABLE_PACK)    # VB-Audio's package, if bundled
     # the CUDA plugin of ONNX Runtime comes with the GPU pack too
     GPU = GPU and os.path.isfile(os.path.join(os.path.dirname(sherpa_onnx.__file__), "lib",
                                               "onnxruntime_providers_cuda.dll"))
@@ -92,16 +93,17 @@ DEFAULTS = dict(
     listening=True,       # turn speech into DECtalk
     voice="p",
     rate=180,             # DECtalk words per minute at your usual pace
-    follow_pitch=1.0,     # 0 = Paul's flat pitch, 1 = move as much as you do, 2 = exaggerate
-    follow_range=1.0,
-    follow_pace=1.0,
-    follow_volume=1.0,
+    follow_pitch=0.0,     # 0 = Paul's flat pitch, 1 = move as much as you do, 2 = exaggerate
+    follow_range=0.0,
+    follow_pace=0.0,
+    follow_volume=0.0,
     emphasis=True,        # stress the word you stressed
     voice_level=-50.0,    # dBFS that counts as your voice (raise it above your keystrokes)
     volume=1.0,
     monitor=False,        # also play the virtual mic on your speakers/headphones
     mic="",               # microphone name; "" = system default at startup
     output="",            # Windows: where DECtalk plays; "" = VB-Audio Virtual Cable if installed
+    cable_asked=False,    # Windows: the offer to install VB-Audio Virtual Cable was shown
 )
 LIMITS = dict(rate=(75, 600), follow_pitch=(0, 2), follow_range=(0, 2), follow_pace=(0, 2),
               follow_volume=(0, 2), volume=(0, 2), voice_level=(-70, -10))
@@ -248,6 +250,7 @@ class Moonbase:
         self.tts = DECtalk()
         self.out = audio.Output(self.s["output"])
         self.out.set_monitor(self.s["monitor"])
+        self.lock = threading.Lock()      # changes of audio devices
         self.frames, self.vad, self.base = P.Frames(), P.Vad(self.s["voice_level"]), P.Baseline()
         self.audio, self.jobs = queue.Queue(), queue.Queue()
         self.phrase = []                  # words of the current utterance already spoken
@@ -263,6 +266,7 @@ class Moonbase:
         return dict(t="state", settings=self.s, voices={k: v[0] for k, v in VOICES.items()},
                     mics=audio.list_mics(), mic=self.mic.name, outputs=audio.list_outputs(),
                     output=self.out.device, hint=self.out.hint, device=self.device,
+                    cable_offer=WINDOWS and not audio.cable_installed() and os.path.isfile(CABLE_PACK),
                     baseline=self.base.as_dict())
 
     def update(self, changes):
@@ -276,20 +280,49 @@ class Moonbase:
             if k == "voice" and v not in VOICES:
                 continue
             self.s[k] = v
-            if k == "voice_level":
-                self.vad.level = v
-            elif k == "monitor":
-                self.out.set_monitor(v)
-            elif k == "mic":
-                self.mic.start(v or audio.default_mic())
-            elif k == "output" and WINDOWS:
-                self.out.set_device(v)
-                self.out.set_monitor(False)
-                self.out.set_monitor(self.s["monitor"])
+            with self.lock:
+                if k == "voice_level":
+                    self.vad.level = v
+                elif k == "monitor":
+                    self.out.set_monitor(v)
+                elif k == "mic":
+                    self.mic.start(v or audio.default_mic())
+                elif k == "output" and WINDOWS:
+                    self.out.set_device(v)
+                    self.out.set_monitor(False)
+                    self.out.set_monitor(self.s["monitor"])
+        self._save()
+        self.publish(self.state())
+
+    def _save(self):
         os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
         with open(SETTINGS_FILE, "w") as f:
             json.dump(self.s, f, indent=1)
+
+    def install_cable(self):
+        """Windows: install VB-Audio Virtual Cable from the bundled package and switch DECtalk to it. Blocks
+        until VB-Audio's installer closes (call it off the UI thread). Publishes t="cable" with the result:
+        "ok", "restart" (installed, but Windows only shows the device after a restart), "declined" or an
+        error message."""
+        try:
+            if not audio.install_cable(CABLE_PACK):
+                result = "declined"
+            else:
+                # PortAudio lists devices once: it must restart to see the cable, with every stream closed
+                with self.lock:
+                    self.mic.stop()
+                    self.out.close()
+                    audio.rescan()
+                    self.s["output"] = ""     # the cable, now that there is one
+                    self.out = audio.Output()
+                    self.out.set_monitor(self.s["monitor"])
+                    self.mic.start(self.mic.name or audio.default_mic())
+                self._save()
+                result = "ok" if audio.cable_installed() else "restart"
+        except Exception as e:
+            result = f"Could not install VB-Audio Virtual Cable: {e}"
         self.publish(self.state())
+        self.publish(dict(t="cable", result=result))
 
     def say(self, text, save_to=None):
         """Say typed text (raw DECtalk input works). With `save_to`, also write it to that MP3 file."""

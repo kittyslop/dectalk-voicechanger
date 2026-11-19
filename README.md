@@ -3,8 +3,9 @@
 Talk into your mic and DECtalk (Perfect Paul, the Moonbase Alpha voice) says it out of a virtual
 microphone called **Moonbase Alpha (DECtalk)**. Pick that device in Discord, OBS, a game, etc.
 
-Each word is spoken as soon as you've said it, and it follows how you said it. Your voice is compared with
-your usual one (learned as you talk) and DECtalk is told to match:
+Each word is spoken as soon as you've said it. By default Paul keeps his own flat delivery, like in the game,
+except for stressed words and questions. Raise the "Follow my ..." sliders (0 by default) and he follows how
+you said it: your voice is compared with your usual one (learned as you talk) and DECtalk is told to match:
 
 | You | DECtalk |
 |-----|---------|
@@ -40,9 +41,11 @@ devices), and publishes a release with two zips:
 - `Moonbase-windows-GPU-pack.zip`: NVIDIA's CUDA/cuDNN DLLs and ONNX Runtime's CUDA plugin. Unzipped on top
   of the first, recognition runs on an NVIDIA GPU. Separate because a release file can be at most 2 GiB.
 
-Windows can't create a microphone by itself, so DECtalk is played into VB-Audio Virtual Cable (installed by
-each user, free), and other programs use "CABLE Output" as the microphone. `packaging/windows/README.txt` is
-the user guide that ships in the zip. All Windows packages are pinned by hash in `packaging/windows/`.
+Windows can't create a microphone by itself, so DECtalk is played into VB-Audio Virtual Cable, and other
+programs use "CABLE Output" as the microphone. VB-Audio's package ships unmodified in `vbcable\` (their
+licence allows it, with the donationware notice the app and guide show). On the first start without it,
+Moonbase offers to run VB-Audio's installer, then rescans the audio devices and switches to the cable.
+`packaging/windows/README.txt` is the user guide that ships in the zip. Everything fetched is pinned by hash.
 
 ## How it works
 

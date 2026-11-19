@@ -1,13 +1,20 @@
 """Windows audio through WASAPI (sounddevice/PortAudio). Same interface as audio_linux.py.
 
 Windows can't create a microphone by itself: DECtalk is played into VB-Audio Virtual Cable's "CABLE Input"
-(installed separately by the user), and Discord, OBS etc. use "CABLE Output" as the microphone. Without the
-cable, DECtalk plays on the speakers. Sample rates and channel counts are converted by Windows
-(WASAPI auto-convert), so the mic is opened at 16 kHz mono and DECtalk is played at 11025 Hz mono.
+(VB-Audio's package ships with the app and is installed on request), and Discord, OBS etc. use "CABLE Output"
+as the microphone. Without the cable, DECtalk plays on the speakers. Sample rates and channel counts are
+converted by Windows (WASAPI auto-convert), so the mic is opened at 16 kHz mono and DECtalk is played at
+11025 Hz mono.
 """
+import ctypes
+import os
+import shutil
+import tempfile
 import threading
 import time
+import zipfile
 from collections import deque
+from ctypes import wintypes
 
 import numpy as np
 import sounddevice as sd
@@ -16,8 +23,54 @@ from dectalk import RATE as TTS_RATE
 
 CABLE = "CABLE Input"                     # VB-Audio Virtual Cable's playback side
 DESCRIPTION = "CABLE Output (VB-Audio Virtual Cable)"
+CABLE_PACK = "VBCABLE_Driver_Pack46.zip"  # VB-Audio's package, shipped unmodified (their license allows it)
 MIC_RATE = 16000
 MIC_BLOCK = 320                           # 20 ms blocks
+
+
+def cable_installed():
+    return any(d["name"].startswith(CABLE) for _, d in _devices("output"))
+
+
+def rescan():
+    """Make PortAudio see devices added since it started (a freshly installed cable). Close all streams
+    first."""
+    sd._terminate()
+    sd._initialize()
+
+
+class _ShellExecuteInfo(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.DWORD), ("fMask", wintypes.ULONG), ("hwnd", wintypes.HWND),
+                ("lpVerb", wintypes.LPCWSTR), ("lpFile", wintypes.LPCWSTR), ("lpParameters", wintypes.LPCWSTR),
+                ("lpDirectory", wintypes.LPCWSTR), ("nShow", ctypes.c_int), ("hInstApp", wintypes.HINSTANCE),
+                ("lpIDList", ctypes.c_void_p), ("lpClass", wintypes.LPCWSTR), ("hkeyClass", wintypes.HKEY),
+                ("dwHotKey", wintypes.DWORD), ("hIconOrMonitor", wintypes.HANDLE), ("hProcess", wintypes.HANDLE)]
+
+
+def install_cable(pack):
+    """Unzip VB-Audio's package and run their installer as administrator: Windows asks for permission, then
+    the user clicks "Install Driver" in it. Waits until the installer closes. False if the user said no to
+    the permission prompt."""
+    folder = os.path.join(tempfile.gettempdir(), "Moonbase-VBCABLE")
+    shutil.rmtree(folder, ignore_errors=True)
+    with zipfile.ZipFile(pack) as z:
+        z.extractall(folder)
+    shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32")
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    info = _ShellExecuteInfo(cbSize=ctypes.sizeof(_ShellExecuteInfo), fMask=0x40,    # SEE_MASK_NOCLOSEPROCESS
+                             lpVerb="runas", lpFile=os.path.join(folder, "VBCABLE_Setup_x64.exe"),
+                             lpDirectory=folder, nShow=1)
+    if not shell32.ShellExecuteExW(ctypes.byref(info)):
+        error = ctypes.get_last_error()
+        if error == 1223:                  # ERROR_CANCELLED: "No" at the permission prompt
+            return False
+        raise ctypes.WinError(error)
+    if info.hProcess:
+        kernel32.WaitForSingleObject(info.hProcess, 0xFFFFFFFF)
+        kernel32.CloseHandle(info.hProcess)
+    return True
 
 
 def _wasapi():
@@ -67,11 +120,12 @@ class _Player:
         self._q, self._lock = deque(), threading.Lock()      # [samples, on_start, position]
         self.stream = sd.OutputStream(device=index, samplerate=TTS_RATE, channels=1, dtype="float32",
                                       latency="low", callback=self._fill, extra_settings=_settings())
+        self.latency = self.stream.latency                   # kept: still valid once the stream is closed
         self.stream.start()
 
     def _fill(self, out, frames, t, status):
         out.fill(0)
-        delay = t.outputBufferDacTime - t.currentTime if t.outputBufferDacTime else self.stream.latency
+        delay = t.outputBufferDacTime - t.currentTime if t.outputBufferDacTime else self.latency
         n = 0
         with self._lock:
             while n < frames and self._q:
@@ -96,7 +150,7 @@ class _Player:
     def backlog(self):
         with self._lock:
             left = sum(len(c[0]) - c[2] for c in self._q)
-        return left / TTS_RATE + self.stream.latency
+        return left / TTS_RATE + self.latency
 
     def close(self):
         self.stream.stop()
@@ -126,8 +180,10 @@ class Output:
     def hint(self):
         if self.device.startswith(CABLE):
             return f'Pick "{DESCRIPTION}" as the microphone in Discord, OBS or a game.'
-        return (f"Playing on {self.device}. To use Moonbase as a microphone, install VB-Audio Virtual Cable "
-                "(vb-audio.com/Cable) and pick \"CABLE Input\" as the output.")
+        if cable_installed():
+            return f'Playing on {self.device}. To be a microphone, pick "{CABLE}" as the output.'
+        return (f"Playing on {self.device}. To be a microphone in Discord and games, Moonbase needs VB-Audio "
+                'Virtual Cable: click "Install virtual mic".')
 
     def play(self, pcm, on_start=None):
         self.main.play(pcm, on_start)

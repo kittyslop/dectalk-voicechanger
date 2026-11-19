@@ -93,6 +93,7 @@ class App:
     def __init__(self, root):
         self.root, self.mb, self.events = root, None, queue.Queue()
         self.loading, self.closing, self.dead, self._applying = True, False, False, False
+        self._cable_busy = self._cable_offered = False
         self.voices, self.mics, self.settings = {}, [], {}
         self.vars, self.values = {}, {}
         downloads = os.path.expanduser("~/Downloads")
@@ -213,6 +214,8 @@ class App:
         self.out_box = ttk.Combobox(vf, state="readonly", width=34)
         self.out_box.bind("<<ComboboxSelected>>", lambda e: self._set(
             output=self.outputs[self.out_box.current()]["name"]))
+        # Windows, without VB-Audio Virtual Cable: installs the copy that comes with Moonbase
+        self.cable_btn = ttk.Button(vf, text="Install virtual mic...", command=self._install_cable)
         self._before_sliders = ttk.Frame(vf)
         self._before_sliders.pack(fill="x")
         for key, label, lo, hi, step in SLIDERS:
@@ -250,7 +253,7 @@ class App:
         self.status_lbl = tk.Label(bar, text="", anchor="w", background=FACE, font=SMALL, relief="sunken",
                                    bd=1, padx=4)
         self.status_lbl.pack(side="left", fill="x", expand=True, padx=(2, 1), pady=2)
-        self.device_lbl = tk.Label(bar, text="Output device: Moonbase Alpha (DECtalk)", background=FACE,
+        self.device_lbl = tk.Label(bar, text="Output device: -", background=FACE,
                                    font=SMALL, relief="sunken", bd=1, padx=6)
         self.device_lbl.pack(side="right", padx=(1, 2), pady=2)
 
@@ -357,6 +360,22 @@ class App:
                 messagebox.showerror("Moonbase", f"Could not save the MP3:\n\n{m['error']}")
             else:
                 self.status(f"Saved {m['path']}")
+        elif t == "cable":
+            self._cable_busy = False
+            self.cable_btn.state(["!disabled"])
+            if m["result"] == "ok":
+                self.status(self._ready)
+                messagebox.showinfo("Virtual microphone", "Done. In Discord, OBS or a game, pick "
+                                    '"CABLE Output (VB-Audio Virtual Cable)" as the microphone.', parent=self.root)
+            elif m["result"] == "restart":
+                self.status("Restart the PC to finish installing VB-Audio Virtual Cable.")
+                messagebox.showinfo("Virtual microphone", "VB-Audio Virtual Cable is installed, but Windows "
+                                    "needs a restart before it shows up. Restart the PC, then open Moonbase "
+                                    "again.", parent=self.root)
+            else:
+                self.status(self._ready)
+                if m["result"] != "declined":
+                    messagebox.showerror("Moonbase", m["result"], parent=self.root)
 
     def _apply_state(self, m):
         self._applying = True
@@ -382,9 +401,19 @@ class App:
             outs = [x["name"] for x in self.outputs]
             if m["output"] in outs:
                 self.out_box.current(outs.index(m["output"]))
-        if m["hint"] != getattr(self, "_hint", None):
-            self._hint = m["hint"]
-            self.status(f"Ready ({m['device']}). {m['hint']}")
+        if m.get("cable_offer"):
+            if not self.cable_btn.winfo_manager():
+                self.cable_btn.pack(anchor="w", pady=(0, 8), before=self._before_sliders)
+            if not s["cable_asked"] and not self._cable_offered:
+                self._cable_offered = True
+                self.root.after(500, self._offer_cable)
+        elif self.cable_btn.winfo_manager():
+            self.cable_btn.pack_forget()
+        self.device_lbl.configure(text=f"Output device: {m['output']}")
+        ready = f"Ready ({m['device']}). {m['hint']}"
+        if ready != getattr(self, "_ready", None):
+            self._ready = ready
+            self.status(ready)
         self.listen_btn.configure(text="Listening" if s["listening"] else "Muted",
                                   style="On.TButton" if s["listening"] else "TButton")
         self._show_base(m.get("baseline"))
@@ -491,6 +520,26 @@ class App:
         self.mb.say(text, save_to=path)
         self.entry.delete(0, "end")
         self.status(f"Saving {path}...")
+
+    def _offer_cable(self):
+        """Asked once, on the first start without the cable."""
+        self._set(cable_asked=True)
+        self._install_cable()
+
+    def _install_cable(self):
+        """Windows: install VB-Audio Virtual Cable, so other programs can hear Paul as a microphone."""
+        if not self.mb or self._cable_busy:
+            return
+        if not messagebox.askyesno("Virtual microphone", (
+                "Install VB-Audio Virtual Cable, so Discord, OBS and games can hear Paul as a microphone?\n\n"
+                'Windows asks for permission first. Then click "Install Driver" in VB-Audio\'s installer.\n\n'
+                "VB-CABLE is made by VB-Audio (www.vb-cable.com). It is donationware: free to use, and "
+                "donations to its makers are welcome."), parent=self.root):
+            return
+        self._cable_busy = True
+        self.cable_btn.state(["disabled"])
+        self.status('Installing VB-Audio Virtual Cable: allow it, then click "Install Driver"...')
+        threading.Thread(target=self.mb.install_cable, daemon=True).start()
 
     def status(self, text):
         self.status_lbl.configure(text=text)
