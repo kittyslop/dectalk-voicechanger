@@ -3,6 +3,8 @@
 Talk into your mic and DECtalk (Perfect Paul, the Moonbase Alpha voice) says it out of a virtual
 microphone called **Moonbase Alpha (DECtalk)**. Pick that device in Discord, OBS, a game, etc.
 
+![The Moonbase window: mic level meter, what it heard, what Paul said, and the voice settings](docs/screenshot.png)
+
 Each word is spoken as soon as you've said it. By default Paul keeps his own flat delivery, like in the game,
 except for stressed words and questions. Raise the "Follow my ..." sliders (0 by default) and he follows how
 you said it: your voice is compared with your usual one (learned as you talk) and DECtalk is told to match:
