@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ab0ff"/>
+      <stop offset="0.45" stop-color="#1c6fea"/>
+      <stop offset="1" stop-color="#0a3fb8"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#fffbe8"/>
+      <stop offset="1" stop-color="#f2d27a"/>
+    </radialGradient>
+    <mask id="crescent">
+      <circle cx="104" cy="128" r="66" fill="#fff"/>
+      <circle cx="134" cy="112" r="56" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="12" y="12" width="232" height="232" rx="44" fill="url(#tile)" stroke="#0831d9" stroke-width="6"/>
+  <path d="M18 70 Q18 18 70 18 H186 Q238 18 238 70 V96 Q128 132 18 96 Z" fill="url(#gloss)"/>
+  <circle cx="104" cy="128" r="66" fill="url(#moon)" mask="url(#crescent)"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="12">
+    <path d="M150 104 Q166 128 150 152"/>
+    <path d="M172 86 Q200 128 172 170"/>
+    <path d="M194 68 Q232 128 194 188" stroke-opacity="0.85"/>
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+[project]
+name = "moonbase"
+version = "1.0.0"
+description = "Live speech to DECtalk (the Moonbase Alpha voice) as a PipeWire microphone, matching your pitch, loudness and pace"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "nvidia-cudnn-cu13>=9.28.1.4",
+    "sherpa-onnx",
+]
+
+[tool.uv]
+package = false
+# the system interpreter's Tk renders anti-aliased fonts (Xft); uv's bundled Python ships Tk with
+# core X fonts only
+python-preference = "only-system"
+
+[tool.uv.sources]
+sherpa-onnx = { url = "https://huggingface.co/csukuangfj2/sherpa-onnx-wheels/resolve/main/cuda/2.0.1/sherpa_onnx-2.0.1+cuda13.cudnn9.onnxruntime1.28.2-cp314-cp314-linux_x86_64.whl" }

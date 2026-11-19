@@ -1,0 +1,26 @@
+# Windows GPU pack: NVIDIA's CUDA 12 / cuDNN 9 libraries for ONNX Runtime's CUDA plugin, pinned with hashes.
+# Only their DLLs are shipped (the pack's cuda/ folder).
+nvidia-cublas-cu12==12.9.2.10 \
+    --hash=sha256:5572131a59c3eebeeb1c4c8144f772d49372c20124916e072a0e3fc30df421d5 \
+    --hash=sha256:623f43027d40d44ceadf0043f002bd25cf353e8f13ce90b9a87057019f560661 \
+    --hash=sha256:e4f53a8ca8c5d6e8c492d0d0a3d565ecb59a751b19cfdaa4f6da0ab2104c1702
+nvidia-cuda-nvrtc-cu12==12.9.86 \
+    --hash=sha256:096d4de6bda726415dfaf3198d4f5c522b8e70139c97feef5cd2ca6d4cd9cead \
+    --hash=sha256:210cf05005a447e29214e9ce50851e83fc5f4358df8b453155d5e1918094dcb4 \
+    --hash=sha256:72972ebdcf504d69462d3bcd67e7b81edd25d0fb85a2c46d3ea3517666636349
+nvidia-cuda-runtime-cu12==12.9.79 \
+    --hash=sha256:25bba2dfb01d48a9b59ca474a1ac43c6ebf7011f1b0b8cc44f54eb6ac48a96c3 \
+    --hash=sha256:83469a846206f2a733db0c42e223589ab62fd2fabac4432d2f8802de4bded0a4 \
+    --hash=sha256:8e018af8fa02363876860388bd10ccb89eb9ab8fb0aa749aaf58430a9f7c4891
+nvidia-cudnn-cu12==9.28.1.4 \
+    --hash=sha256:3467aafa9b260e6adf5fbbfc0e21d180133305b42032aa1160be2d3142bb8b09 \
+    --hash=sha256:cbcf6f33c77fef3aa61d3fec36f2e89b07eb27d65b9f369c1adf3cfee08c2c21 \
+    --hash=sha256:ef24078b4d2f45e80b5ce425f9e4a190bc48806e8c9ea1467496f85ed9b0a1fe
+nvidia-cufft-cu12==11.4.1.4 \
+    --hash=sha256:1a28c9b12260a1aa7a8fd12f5ebd82d027963d635ba82ff39a1acfa7c4c0fbcf \
+    --hash=sha256:8e5bfaac795e93f80611f807d42844e8e27e340e0cde270dcb6c65386d795b80 \
+    --hash=sha256:c67884f2a7d276b4b80eb56a79322a95df592ae5e765cf1243693365ccab4e28
+nvidia-nvjitlink-cu12==12.9.86 \
+    --hash=sha256:994a05ef08ef4b0b299829cde613a424382aff7efb08a7172c1fa616cc3af2ca \
+    --hash=sha256:cc6fcec260ca843c10e34c936921a1c426b351753587fdd638e8cff7b16bb9db \
+    --hash=sha256:e3f1171dbdc83c5932a45f0f4c99180a70de9bd2718c1ab77d14104f6d7147f9
